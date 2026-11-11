@@ -12,6 +12,8 @@ services:
       - ysocial-data:/data
     expose:
       - "5000"
+    networks:
+      - default
     mem_limit: 1536m
     mem_reservation: 256m
     cpus: "2.0"
@@ -27,3 +29,10 @@ services:
 
 volumes:
   ysocial-data:
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.16.10.0/24
