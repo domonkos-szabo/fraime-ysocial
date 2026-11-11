@@ -36,3 +36,28 @@ This repository launches one [YSocial 4.0](https://github.com/YSocialTwin/YSocia
 - **Data disappeared:** verify the named volume is attached; inspect Dokploy deployments without deleting volumes.
 
 Official references: https://docs.dokploy.com/docs/core/docker-compose , https://docs.dokploy.com/docs/core/github , https://github.com/YSocialTwin/YSocial
+
+
+## FRAIME HPC / Ray incident test (November 2026)
+The Photo Sharing pilot `FRAIME Social Lab 002 - Beam Pro` imported successfully but its HPC server did not write `ray_config.temp`; the client remained at 0/24 simulated hours. A missing `prompts_ygram.json` was fixed manually. **Do not fabricate Ray marker files**: they must be written by the running Ray server.
+
+**While YSocial is stopped**, get reproducible, read-only diagnostics from the Surface host (not inside the container):
+
+```bash
+git clone https://github.com/domonkos-szabo/fraime-ysocial.git
+cd fraime-ysocial
+# or update an existing checkout to the branch containing these scripts
+bash scripts/diagnose-hpc.sh
+```
+
+The diagnostic helper reads Docker state and logs, then runs a **short-lived** container with the stopped service's volumes **read-only**, network disabled, 128 MiB memory and 32 PID limits. It checks:
+- `server_config.json`, `prompts_ygram.json`, client JSON validity
+- configured LLM HTTP endpoint and model (without printing API keys)
+- `ray_config.temp` and `ray_ready.temp` markers
+- recent experiment logs, which may contain sensitive content: **review before sharing**
+
+After starting **only the experiment server**, run `bash scripts/diagnose-hpc.sh fraime-ysocial-4wc0zu-ysocial-1 server`. A missing Ray marker is an explicit FAIL. Do not click **Run Client** until the server-stage check passes. If it fails, investigate experiment server logs rather than restarting the container repeatedly.
+
+The Docker Compose test limits are now 2 GiB RAM, 2 CPUs, 384 PIDs and 256 MiB `/dev/shm`. This is **not a guarantee Ray will start** on a host with 15 GiB shared across many services and no swap. Review available host memory before deployment. The compose image remains pinned to the **existing digest**; it does not auto-build or deploy changes from `Dockerfile.lab`. Changes are inactive until the compose config is explicitly deployed in Dokploy.
+
+**Recovery safety:** Never remove `ysocial-data` or use `docker compose down -v`. The diagnostic is non-destructive and does not modify the experiment.
