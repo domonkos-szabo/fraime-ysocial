@@ -12,6 +12,7 @@ on:
     paths:
       - Dockerfile.lab
       - scripts/patch-hpc-lifecycle.py
+      - scripts/patch-photo-llm.py
       - scripts/lab-entrypoint.sh
       - .github/workflows/build-lab-image.yml
   push:
@@ -19,6 +20,7 @@ on:
       - Dockerfile.lab
       - scripts/lab-entrypoint.sh
       - scripts/patch-hpc-lifecycle.py
+      - scripts/patch-photo-llm.py
       - .github/workflows/build-lab-image.yml
 
 permissions:
@@ -41,6 +43,9 @@ jobs:
           docker run --rm --entrypoint python fraime-ysocial-lab:test -c "import torch, ray, detoxify; assert not torch.cuda.is_available(); print('torch', torch.__version__)"
           docker run --rm --entrypoint sh fraime-ysocial-lab:test -c 'test -f /opt/fraime-plugins/YPhotoSharing/run_client.py && test -f /opt/fraime-plugins/YPhotoSharing/run_server.py'
           docker run --rm --entrypoint python fraime-ysocial-lab:test -c "import inspect; import y_web.src.hpc.server as s; import y_web.src.hpc.client as c; assert 'hpc_server_bootstrap.log' in inspect.getsource(s.start_hpc_server); assert 'HPC server not ready' in inspect.getsource(c.start_hpc_client); print('FRAIME HPC lifecycle patch present')"
+          docker run --rm --entrypoint python fraime-ysocial-lab:test -c "from langchain_openai import ChatOpenAI; print('OpenAI client available')"
+          docker run --rm --entrypoint python fraime-ysocial-lab:test /usr/local/bin/fraime-patch-photo-llm.py --check /opt/fraime-plugins/YPhotoSharing
+          docker run --rm --entrypoint python fraime-ysocial-lab:test -c "from pathlib import Path; s=Path('/opt/fraime-plugins/YPhotoSharing/YPhotoSharing/YClient/LLM_interactions/llm_service.py').read_text(); assert 'FRAIME LLM success template=' in s; assert 'ChatOpenAI(**params)' in s; print('FRAIME LLM patch present')"
           docker run --rm --entrypoint python fraime-ysocial-lab:test -m pip check
           docker image inspect fraime-ysocial-lab:test --format 'Image size (bytes): {{.Size}}'
 
