@@ -1,12 +1,22 @@
-name: Validate experimental CPU-only YSocial image
+name: Build and optionally publish CPU-only YSocial lab image
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish tested image to GHCR (no deployment)"
+        type: boolean
+        required: true
+        default: false
   push:
     paths:
       - Dockerfile.lab
       - scripts/lab-entrypoint.sh
       - .github/workflows/build-lab-image.yml
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build:
@@ -15,9 +25,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: Build isolated experimental image (no deployment or push)
+
+      - name: Build isolated experimental image
         run: docker build --progress=plain -f Dockerfile.lab -t fraime-ysocial-lab:test .
+
       - name: Smoke test Python, plugin and CPU-only runtime
         run: |
           docker run --rm --entrypoint python fraime-ysocial-lab:test -c "import torch, ray, detoxify; assert not torch.cuda.is_available(); print('torch', torch.__version__)"
           docker run --rm --entrypoint sh fraime-ysocial-lab:test -c 'test -f /opt/fraime-plugins/YPhotoSharing/run_client.py && test -f /opt/fraime-plugins/YPhotoSharing/run_server.py'
+          docker run --rm --entrypoint python fraime-ysocial-lab:test -m pip check
+          docker image inspect fraime-ysocial-lab:test --format 'Image size (bytes): {{.Size}}'
+
+      - name: Sign in to GitHub Container Registry
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish tested image by immutable commit tag
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/fraime-ysocial-lab
+          SHA: ${{ github.sha }}
+        run: |
+          docker tag fraime-ysocial-lab:test "${IMAGE}:sha-${SHA}"
+          docker push "${IMAGE}:sha-${SHA}"
+          echo "Published ${IMAGE}:sha-${SHA}" >> "$GITHUB_STEP_SUMMARY"
