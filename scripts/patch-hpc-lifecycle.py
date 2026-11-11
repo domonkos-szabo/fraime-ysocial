@@ -40,6 +40,9 @@ patch(server,
             # Fallback: try to use the current Python implicitly''',
 '''                bootstrap_path = os.path.join(exp_folder, "logs", "hpc_server_bootstrap.log")
                 os.makedirs(os.path.dirname(bootstrap_path), exist_ok=True)
+                # Keep one previous bootstrap log to avoid filling the disk.
+                if os.path.exists(bootstrap_path) and os.path.getsize(bootstrap_path) > 5 * 1024 * 1024:
+                    os.replace(bootstrap_path, bootstrap_path + ".1")
                 # Appends across starts; survives an app/container crash.
                 with open(bootstrap_path, "ab", buffering=0) as bootstrap_log:
                     bootstrap_log.write(
