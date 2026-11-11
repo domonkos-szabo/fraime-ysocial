@@ -14,10 +14,12 @@ services:
       - "5000"
     networks:
       - default
-    mem_limit: 1536m
+    mem_limit: 2048m
     mem_reservation: 256m
+    # Ray uses POSIX shared memory; Docker's default /dev/shm is only 64 MiB.
+    shm_size: 256m
     cpus: "2.0"
-    pids_limit: 256
+    pids_limit: 384
     security_opt:
       - no-new-privileges:true
     logging:
