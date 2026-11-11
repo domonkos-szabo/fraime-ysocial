@@ -20,7 +20,7 @@ RUN git clone --depth 1 --branch "${PHOTO_SHARING_TAG}" \
     && cp -a /tmp/YPhotoSharing/. /opt/fraime-plugins/YPhotoSharing/ \
     && rm -rf /tmp/YPhotoSharing \
     && python -c "import torch; assert not torch.cuda.is_available(); print('CPU torch:',torch.__version__)" \
-    && python -c "import ray, detoxify, YPhotoSharing" || true
+    && python -c "import ray, detoxify; print('Ray and Detoxify imports OK')"
 
 COPY scripts/lab-entrypoint.sh /usr/local/bin/fraime-lab-entrypoint
 RUN chmod 755 /usr/local/bin/fraime-lab-entrypoint
