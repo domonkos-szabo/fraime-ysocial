@@ -8,6 +8,12 @@ services:
     restart: unless-stopped
     environment:
       TZ: Europe/Budapest
+      # SciPy/NLTK OpenBLAS import otherwise exhausts Ray container threads.
+      # Confirmed: with 1 thread the import finishes in 0.81 seconds.
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
     volumes:
       - ysocial-data:/data
     expose:
