@@ -1,0 +1,24 @@
+# FRAIME Social Lab — Raspberry Pi 4 / ARM64 pilot.
+# Only launch after scripts/preflight.sh passes and the GHCR image supports linux/arm64.
+# YSocial 4.x uses SQLite in /data. No local Ollama or Postgres.
+services:
+  ysocial:
+    image: ghcr.io/ysocialtwin/ysocial:latest
+    container_name: fraime-lab-ysocial
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5001:5000"
+    volumes:
+      - ysocial-data:/data
+    environment:
+      TZ: Europe/Budapest
+    mem_limit: 1536m
+    mem_reservation: 512m
+    cpus: "2.0"
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+
+volumes:
+  ysocial-data:
