@@ -8,10 +8,17 @@ on:
         type: boolean
         required: true
         default: false
+  pull_request:
+    paths:
+      - Dockerfile.lab
+      - scripts/patch-hpc-lifecycle.py
+      - scripts/lab-entrypoint.sh
+      - .github/workflows/build-lab-image.yml
   push:
     paths:
       - Dockerfile.lab
       - scripts/lab-entrypoint.sh
+      - scripts/patch-hpc-lifecycle.py
       - .github/workflows/build-lab-image.yml
 
 permissions:
@@ -33,11 +40,12 @@ jobs:
         run: |
           docker run --rm --entrypoint python fraime-ysocial-lab:test -c "import torch, ray, detoxify; assert not torch.cuda.is_available(); print('torch', torch.__version__)"
           docker run --rm --entrypoint sh fraime-ysocial-lab:test -c 'test -f /opt/fraime-plugins/YPhotoSharing/run_client.py && test -f /opt/fraime-plugins/YPhotoSharing/run_server.py'
+          docker run --rm --entrypoint python fraime-ysocial-lab:test -c "import inspect; import y_web.src.hpc.server as s; import y_web.src.hpc.client as c; assert 'hpc_server_bootstrap.log' in inspect.getsource(s.start_hpc_server); assert 'HPC server not ready' in inspect.getsource(c.start_hpc_client); print('FRAIME HPC lifecycle patch present')"
           docker run --rm --entrypoint python fraime-ysocial-lab:test -m pip check
           docker image inspect fraime-ysocial-lab:test --format 'Image size (bytes): {{.Size}}'
 
       - name: Sign in to GitHub Container Registry
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -45,7 +53,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish tested image by immutable commit tag
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish) || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         env:
           IMAGE: ghcr.io/${{ github.repository_owner }}/fraime-ysocial-lab
           SHA: ${{ github.sha }}
