@@ -1,50 +1,38 @@
-# FRAIME Social Lab — Raspberry Pi 4 (4 GB RAM)
+# FRAIME Social Lab — Surface / Dokploy
 
-**Status: prepared; NOT deployed.** This repo provides a minimal YSocial 4.x Docker Compose pilot for a *separate* LAB Dokploy on a Raspberry Pi 4, with remote LLM inference. It does not configure cloud credentials or Cloudflare DNS.
+**Primary deployment target: Surface Pro 9 (Ubuntu x86_64), existing Dokploy.**
 
-## Design decisions
-- 64-bit OS (`aarch64`), ideally Ubuntu Server 24.04 LTS ARM64.
-- Prefer USB 3 SSD; do not place the Docker data root on an SD card for sustained operation.
-- 4 GB RAM is tight: reserve capacity for OS, Dokploy/Traefik and tunnel; YSocial limited to 1.5 GiB/2 CPUs.
-- Use the upstream GHCR image **only after verifying that its manifest includes linux/arm64**. An ARM64 AppImage does NOT guarantee an ARM64 Docker image.
-- SQLite named volume `ysocial-data`, bound only to `127.0.0.1:5001` on the Pi. No direct public port.
-- External OpenAI-compatible LLM configured inside YSocial's admin UI, with provider-side hard spend caps.
-- No GPU, Ollama, PostgreSQL, local toxicity model, or continuous high-volume simulation in v0.1.
+This repository launches one [YSocial 4.0](https://github.com/YSocialTwin/YSocial) instance for a small controlled social simulation. It does not modify any production FRAIME modules.
 
-## Step 1: Pi health check (no changes)
-On the Pi via SSH:
-```bash
-git clone https://github.com/domonkos-szabo/fraime-ysocial.git
-cd fraime-ysocial
-bash scripts/preflight.sh
-```
-Because this repository may be private, use your authenticated GitHub access or download the files separately. Paste back output of `uname -m`, `free -h`, `df -h /`, `lsblk`, and the image manifest. **Do not paste secrets**.
+## Quick deploy (Dokploy)
+1. In the existing Surface Dokploy create a **Project** `FRAIME LAB` (or reuse a lab project).
+2. Add **Compose** service `fraime-ysocial`; source **GitHub**: `domonkos-szabo/fraime-ysocial`, branch `main`, Compose path **`compose.yaml`** (repository root). Repo is private, so grant the Dokploy GitHub integration access.
+3. Ensure **Docker Compose** mode (not Docker Stack), then **Deploy**. This pulls upstream `ghcr.io/ysocialtwin/ysocial:4.0.0` and creates the Docker named volume; no application build required.
+4. In **Domains**, attach a new internal service domain to **service `ysocial`**, **port `5000`**, and use your established Dokploy/Traefik routing. For Cloudflare Tunnel, route the hostname to your existing Traefik HTTP entrypoint (for your setup, `http://localhost:80`) and protect it with **Cloudflare Access** before logging in.
+5. In Dokploy **Logs**, confirm the web server is listening. In a browser, complete login and **immediately change any default admin password**. Upstream docs list `admin@y-not.social` / `admin` as initial credentials: NEVER leave this reachable without Access.
+6. In YSocial admin configure a **remote OpenAI-compatible LLM**. The Docker image does not ship an LLM server. Keep provider credentials out of Git and set a strict spend cap.
+7. Start a manually triggered experiment with **5 agents**. Monitor RAM, CPU and disk before increasing to 20–50.
 
-## Step 2: Dokploy (only after preflight)
-Official installation guide: https://docs.dokploy.com/docs/core/installation
-- Dokploy's documented minimum is 2 GB RAM / 30 GB disk; Pi 4 4 GB leaves limited headroom.
-- Verify ports 80/443/3000 free and accessible only as intended.
-- Use the official install script after inspecting it, and preferably set the Docker data root on SSD first.
-- In a separate Dokploy instance, create project `LAB` and compose app `fraime-social-lab` from this repo's `compose.yaml`.
-- Configure a Cloudflare Tunnel separately with access control to `http://localhost:5001`. If tunnel is in Docker, point it at the host appropriately; localhost inside its container is not the Pi host.
+## Safety and limits
+- 1.5 GiB max memory, 2 CPUs, 30 MiB rolling container logs, 256 PIDs.
+- No host port is published: only Docker internal `5000` is exposed for the Dokploy domain proxy.
+- Data persists in `ysocial-data:/data`. Back up as required; never use `docker compose down -v` or delete the named volume inadvertently.
+- On the already-busy Surface, check `df -h /`, `free -h`, `docker system df` **before deploy** and monitor the host during a small test.
+- The YSocial UI is **not a Meta Graph API emulator**. FRAIME will need a separate read-only connector/adapter for simulated data.
+- Image tag `4.0.0` must be verified pullable on the host. If the image tag is unavailable, check the upstream GHCR tags rather than silently switching to `latest`. Pin a digest after first successful pull.
+- No local Ollama, PostgreSQL or optional ML classifiers in this pilot.
+- Cloudflare Tunnel is an external infrastructure change and is **not** configured by this repository.
 
-## Step 3: ARM64 image verification
-After Docker is installed:
-```bash
-docker buildx imagetools inspect ghcr.io/ysocialtwin/ysocial:latest
-```
-Look for `linux/arm64`. **If absent, stop.** The documented alternative is a reviewed ARM64 build of YSocial 4.x, not forced amd64 emulation on 4 GB hardware.
+## Deployment variants
+- `compose.yaml`: preferred Surface / existing Dokploy deployment.
+- `deploy/pi/compose.yaml`: preserved experimental Raspberry Pi 4 setup; **not** used by the Surface application until separately validated.
+- `scripts/preflight.sh`: Pi-specific read-only preflight.
 
-## Step 4: YSocial pilot
-- Start UI first, verify persistence over one restart.
-- Configure a *remote* LLM endpoint using the admin settings; never commit API keys.
-- Begin with 5 agents and a short, manually triggered experiment. Monitor `docker stats`, `free -h`, disk, CPU temperature/throttling.
-- Increase to 20–50 agents only after measuring memory, latency, token spend, and Docker health.
-- Keep the real FRAIME connectors untouched until a separate read-only adapter is tested.
+## Troubleshooting
+- **Image pull error:** confirm GHCR tag and registry access; check Docker image manifest on host.
+- **Bad Gateway / 404:** ensure Dokploy domain points to service `ysocial` port `5000`, and Cloudflare Tunnel points at your existing Traefik port 80.
+- **Out of memory:** reduce simulation and inspect `docker stats`; avoid increasing the limit without checking the host.
+- **No agent output:** configure a working remote LLM endpoint/model in YSocial admin.
+- **Data disappeared:** verify the named volume is attached; inspect Dokploy deployments without deleting volumes.
 
-## Cautions
-- Verify upstream 4.x release behavior against this Compose file before deployment, and pin the validated image digest instead of `latest`.
-- The image is configured by upstream to persist files in `/data`; validate the actual contents and restore procedure.
-- Back up the Docker volume when experiments matter (prefer quiesced or application-consistent backup).
-- Avoid exposing the UI publicly without Cloudflare Access or equivalent authentication.
-- This lab does **not** emulate Meta Graph API behavior. It produces simulated social activity for a FRAIME adapter.
+Official references: https://docs.dokploy.com/docs/core/docker-compose , https://docs.dokploy.com/docs/core/github , https://github.com/YSocialTwin/YSocial
