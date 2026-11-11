@@ -1,0 +1,29 @@
+name: HPC preflight checks
+
+on:
+  pull_request:
+    paths:
+      - scripts/hpc-preflight.py
+      - scripts/diagnose-hpc.sh
+      - tests/test_hpc_preflight.py
+      - compose.yaml
+      - .github/workflows/hpc-preflight-tests.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax
+        run: python -m py_compile scripts/hpc-preflight.py tests/test_hpc_preflight.py
+      - name: Script shell syntax
+        run: bash -n scripts/diagnose-hpc.sh
+      - name: Preflight unit tests
+        run: python -m unittest discover -s tests -p 'test_hpc_preflight.py' -v
+      - name: Docker compose syntax
+        run: docker compose -f compose.yaml config --quiet
