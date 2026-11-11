@@ -25,7 +25,10 @@ services:
     # Ray uses POSIX shared memory; Docker's default /dev/shm is only 64 MiB.
     shm_size: 256m
     cpus: "2.0"
-    pids_limit: 384
+    # Ray spawns hundreds of OS threads; 384 caused RuntimeError:
+    # "can't start new thread" with pids.current=348 and pids.events.max=2.
+    # Keep memory/cpu limits unchanged; bound processes independently.
+    pids_limit: 1024
     security_opt:
       - no-new-privileges:true
     logging:
