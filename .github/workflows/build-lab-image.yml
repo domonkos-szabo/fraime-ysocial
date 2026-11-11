@@ -1,0 +1,23 @@
+name: Validate experimental CPU-only YSocial image
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - Dockerfile.lab
+      - scripts/lab-entrypoint.sh
+      - .github/workflows/build-lab-image.yml
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build isolated experimental image (no deployment or push)
+        run: docker build --progress=plain -f Dockerfile.lab -t fraime-ysocial-lab:test .
+      - name: Smoke test Python, plugin and CPU-only runtime
+        run: |
+          docker run --rm --entrypoint python fraime-ysocial-lab:test -c "import torch, ray, detoxify; assert not torch.cuda.is_available(); print('torch', torch.__version__)"
+          docker run --rm --entrypoint sh fraime-ysocial-lab:test -c 'test -f /opt/fraime-plugins/YPhotoSharing/run_client.py && test -f /opt/fraime-plugins/YPhotoSharing/run_server.py'
