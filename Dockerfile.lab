@@ -1,0 +1,27 @@
+# FRAIME LAB experimental image. Does NOT replace the running YSocial deployment.
+# Pin upstream release; Python dependencies stay in the immutable image layer.
+FROM ghcr.io/ysocialtwin/ysocial:v4.0.0
+
+ARG PHOTO_SHARING_TAG=v2.1.0
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Install a CPU-only torch/vision pair before YPhotoSharing's dependencies.
+# YPhotoSharing's annotation module eagerly imports Detoxify, so keep its
+# dependencies, while excluding CUDA runtime downloads via the CPU wheels.
+RUN python -m pip install --no-cache-dir \
+      --index-url https://download.pytorch.org/whl/cpu \
+      'torch==2.5.1+cpu' 'torchvision==0.20.1+cpu'
+
+RUN git clone --depth 1 --branch "${PHOTO_SHARING_TAG}" \
+      https://github.com/YSocialTwin/YPhotoSharing.git /tmp/YPhotoSharing \
+    && python -m pip install --no-cache-dir -r /tmp/YPhotoSharing/requirements.txt \
+    && mkdir -p /opt/fraime-plugins/YPhotoSharing \
+    && cp -a /tmp/YPhotoSharing/. /opt/fraime-plugins/YPhotoSharing/ \
+    && rm -rf /tmp/YPhotoSharing \
+    && python -c "import torch; assert not torch.cuda.is_available(); print('CPU torch:',torch.__version__)" \
+    && python -c "import ray, detoxify, YPhotoSharing" || true
+
+COPY scripts/lab-entrypoint.sh /usr/local/bin/fraime-lab-entrypoint
+RUN chmod 755 /usr/local/bin/fraime-lab-entrypoint
+ENTRYPOINT ["/usr/local/bin/fraime-lab-entrypoint"]
