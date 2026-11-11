@@ -22,6 +22,12 @@ RUN git clone --depth 1 --branch "${PHOTO_SHARING_TAG}" \
     && python -c "import torch; assert not torch.cuda.is_available(); print('CPU torch:',torch.__version__)" \
     && python -c "import ray, detoxify; print('Ray and Detoxify imports OK')"
 
+# OpenAI-compatible Beam Pro endpoint support. Apply to the immutable plugin
+# copy; the entrypoint applies the same idempotent patch to old /data installs.
+RUN python -m pip install --no-cache-dir 'langchain-openai>=0.2,<1.0'
+COPY scripts/patch-photo-llm.py /usr/local/bin/fraime-patch-photo-llm.py
+RUN python /usr/local/bin/fraime-patch-photo-llm.py /opt/fraime-plugins/YPhotoSharing
+
 # Patch installed upstream YSocial only inside the immutable LAB image.
 # Fail image build if pinned upstream code no longer matches expected markers.
 COPY scripts/patch-hpc-lifecycle.py /tmp/fraime-patch-hpc-lifecycle.py
