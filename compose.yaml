@@ -4,7 +4,7 @@
 # No published host ports. Attach a domain to service ysocial:5000 in Dokploy.
 services:
   ysocial:
-    image: ghcr.io/domonkos-szabo/fraime-ysocial-lab@sha256:3e1e8f77efeb0a333b654462acd0904c93656e03c3a707f169aaa35654c6ed5e
+    image: ghcr.io/domonkos-szabo/fraime-ysocial-lab:sha-fe334119d6fea7d49441d688560aafb86dffbd90
     restart: unless-stopped
     environment:
       TZ: Europe/Budapest
