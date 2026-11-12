@@ -32,9 +32,8 @@ services:
 volumes:
   swarmclaw-data:
 
+# Reuse the existing attachable Dokploy overlay; do not allocate another bridge subnet.
 networks:
   default:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 10.253.79.0/24
+    external: true
+    name: dokploy-network
