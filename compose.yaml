@@ -1,36 +1,27 @@
-# FRAIME Social Lab — Surface Pro 9 / Dokploy / x86_64
-# Source: https://github.com/YSocialTwin/YSocial (4.x)
-# Dokploy Compose service: ysocial; internal port: 5000.
-# No published host ports. Attach a domain to service ysocial:5000 in Dokploy.
+# FRAIME Social Lab — SwarmClaw pilot (isolated branch)
+# Deploy in a NEW Dokploy Compose application, NOT over the running YSocial app.
+# Domain -> service swarmclaw, port 3456. No host ports published.
 services:
-  ysocial:
-    image: ghcr.io/domonkos-szabo/fraime-ysocial-lab:sha-c1290bb43ae28444304b90c6707271c477ef3ca0
+  swarmclaw:
+    image: ghcr.io/swarmclawai/swarmclaw:latest
     restart: unless-stopped
     environment:
       TZ: Europe/Budapest
-      # SciPy/NLTK OpenBLAS import otherwise exhausts Ray container threads.
-      # Confirmed: with 1 thread the import finishes in 0.81 seconds.
-      OPENBLAS_NUM_THREADS: "1"
-      OMP_NUM_THREADS: "1"
-      MKL_NUM_THREADS: "1"
-      NUMEXPR_NUM_THREADS: "1"
+      NODE_ENV: production
+      PORT: "3456"
+      HOSTNAME: "0.0.0.0"
+      ACCESS_KEY: ${ACCESS_KEY:?Set a unique ACCESS_KEY in Dokploy environment}
+      CREDENTIAL_SECRET: ${CREDENTIAL_SECRET:?Set a stable CREDENTIAL_SECRET in Dokploy environment}
     volumes:
-      - ysocial-data:/data
+      - swarmclaw-data:/app/data
     expose:
-      - "5000"
-    networks:
-      - default
-    mem_limit: 2048m
-    mem_reservation: 256m
-    # Ray uses POSIX shared memory; Docker's default /dev/shm is only 64 MiB.
-    shm_size: 256m
-    cpus: "2.0"
-    # Ray spawns hundreds of OS threads; 384 caused RuntimeError:
-    # "can't start new thread" with pids.current=348 and pids.events.max=2.
-    # Keep memory/cpu limits unchanged; bound processes independently.
-    pids_limit: 1024
-    security_opt:
-      - no-new-privileges:true
+      - "3456"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3456/api/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     logging:
       driver: json-file
       options:
@@ -39,11 +30,4 @@ services:
     stop_grace_period: 30s
 
 volumes:
-  ysocial-data:
-
-networks:
-  default:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.16.10.0/24
+  swarmclaw-data:
