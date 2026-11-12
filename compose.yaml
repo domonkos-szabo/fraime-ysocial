@@ -16,6 +16,8 @@ services:
       - swarmclaw-data:/app/data
     expose:
       - "3456"
+    networks:
+      - pilot-net
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:3456/api/healthz"]
       interval: 30s
@@ -31,3 +33,10 @@ services:
 
 volumes:
   swarmclaw-data:
+
+networks:
+  pilot-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.253.79.0/24
